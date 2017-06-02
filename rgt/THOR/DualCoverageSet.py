@@ -71,7 +71,7 @@ class DualCoverageSet():
             name_bam, name_input = self._get_BAM_names(input['input'], input['ip'])
 
             if debug:  # 0: output raw IP
-                input['cov-ip'].write_bigwig(name + '-debug-0-' + name_bam + '.bw', chrom_sizes)
+                input['cov-ip'].write_bigwig(name + '_debug_0_' + name_bam + '.bw', chrom_sizes)
 
             if input['input'] is not None:
                 input['cov-input'] = CoverageSet('%s file' % input['input'], region)
@@ -88,8 +88,8 @@ class DualCoverageSet():
 
                 if debug:  # 1: output after GC
                     self.print_gc_hist(name + '-' + name_input, gc_hist)  # print hist data
-                    input['cov-input'].write_bigwig(name + '-debug-1-' + name_input + '.bw', chrom_sizes)
-                    input['cov-ip'].write_bigwig(name + '-debug-1-' + name_bam + '.bw', chrom_sizes)
+                    input['cov-input'].write_bigwig(name + '_debug_1_' + name_input + '.bw', chrom_sizes)
+                    input['cov-ip'].write_bigwig(name + '_debug_1_' + name_bam + '.bw', chrom_sizes)
 
         norm_done = False
         print("Normalizing signals", file=sys.stderr)
@@ -102,8 +102,8 @@ class DualCoverageSet():
                                            factor_input_2, chrom_sizes_dict, tracker)
 
             if input['input'] is not None:
-                input['cov-input'].write_bigwig(name + '-' + name_input + '-normalized.bw', chrom_sizes)
-            input['cov-ip'].write_bigwig(name + '-' + name_bam + '-normalized.bw', chrom_sizes)
+                input['cov-input'].write_bigwig(name + '-' + name_input + '_normalized.bw', chrom_sizes)
+            input['cov-ip'].write_bigwig(name + '-' + name_bam + '_normalized.bw', chrom_sizes)
 
         # make one array for the coverage
         self.first_overall_coverage = reduce(lambda x, y: np.concatenate((x, y)),

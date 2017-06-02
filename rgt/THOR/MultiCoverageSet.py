@@ -92,7 +92,7 @@ class MultiCoverageSet(DualCoverageSet):
             rep = i if i < self.dim_1 else i-self.dim_1
             sig = 1 if i < self.dim_1 else 2
             if self.inputs:
-                self.inputs[i].write_bigwig(name + '-' + str(self.counter) + '-input-s%s-rep%s.bw' %(sig, rep), chrom_sizes, save_wig=save_wig, end=self.end)
+                self.inputs[i].write_bigwig(name + '-' + str(self.counter) + '_input_s%s_rep%s.bw' %(sig, rep), chrom_sizes, save_wig=save_wig, end=self.end)
     
     def _output_bw(self, name, chrom_sizes, save_wig, save_input):
         """Output bigwig files"""
@@ -100,7 +100,7 @@ class MultiCoverageSet(DualCoverageSet):
             rep = i if i < self.dim_1 else i-self.dim_1
             sig = 1 if i < self.dim_1 else 2
             
-            self.covs[i].write_bigwig(name + '-' + str(self.counter) + '-s%s-rep%s.bw' %(sig, rep), chrom_sizes, save_wig=save_wig, end=self.end)
+            self.covs[i].write_bigwig(name + '-' + str(self.counter) + '_s%s_rep%s.bw' %(sig, rep), chrom_sizes, save_wig=save_wig, end=self.end)
         
         #ra = [self.covs_avg, self.input_avg] if self.inputs else [self.covs_avg]
         #for k, d in enumerate(ra):

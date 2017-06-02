@@ -67,12 +67,14 @@ def output(name, regions):
 
 def merge_delete(ext_size, merge, peak_list, pvalue_list):
 #     peaks_gain = read_diffpeaks(path)
-    
     regions_plus = GenomicRegionSet('regions') #pot. mergeable
     regions_minus = GenomicRegionSet('regions') #pot. mergeable
     regions_unmergable = GenomicRegionSet('regions')
     last_orientation = ""
-    
+
+    print(ext_size)
+    print('change ext_size smaller')
+    ext_size = 10
     for i, t in enumerate(peak_list):
         chrom, start, end, c1, c2, strand, ratio = t[0], t[1], t[2], t[3], t[4], t[5], t[6]
         r = GenomicRegion(chrom = chrom, initial = start, final = end, name = '', \
@@ -80,14 +82,16 @@ def merge_delete(ext_size, merge, peak_list, pvalue_list):
         if end - start > ext_size:
             if strand == '+':
                 if last_orientation == '+':
-                    region_plus.add(r)
+                    regions_plus.add(r)
                 else:
                     regions_unmergable.add(r)
             elif strand == '-':
                 if last_orientation == '-':
-                    region_mins.add(r)
+                    regions_minus.add(r)
                 else:
                     regions_unmergable.add(r)
+
+
                     
                     
     if merge:
@@ -109,6 +113,8 @@ def merge_delete(ext_size, merge, peak_list, pvalue_list):
     for el in regions_unmergable:
         results.add(el)
     results.sort()
+
+    print(len(results))
     
     return results
 
@@ -121,8 +127,8 @@ def filter_by_pvalue_strand_lag(ratios, pcutoff, pvalues, output, no_correction,
         pv_pass = [True] * len(pvalues)
         pvalues = map(lambda x: 10**-x, pvalues)
         
-        _output_BED(name + '-uncor', output, pvalues, pv_pass)
-        _output_narrowPeak(name + '-uncor', output, pvalues, pv_pass)
+        _output_BED(name + '_uncor', output, pvalues, pv_pass)
+        _output_narrowPeak(name + '_uncor', output, pvalues, pv_pass)
         
         pv_pass, pvalues = multiple_test_correction(pvalues, alpha=pcutoff)
     else:
@@ -140,7 +146,7 @@ def filter_by_pvalue_strand_lag(ratios, pcutoff, pvalues, output, no_correction,
     return output, pvalues, filter_pass
 
 def _output_BED(name, output, pvalues, filter):
-    f = open(name + '-diffpeaks.bed', 'w')
+    f = open(name + '_diffpeaks.bed', 'w')
      
     colors = {'+': '255,0,0', '-': '0,255,0'}
     bedscore = 1000
@@ -158,7 +164,7 @@ def _output_BED(name, output, pvalues, filter):
 def _output_narrowPeak(name, output, pvalues, filter):
     """Output in narrowPeak format,
     see http://genome.ucsc.edu/FAQ/FAQformat.html#format12"""
-    f = open(name + '-diffpeaks.narrowPeak', 'w')
+    f = open(name + '_diffpeaks.narrowPeak', 'w')
     for i in range(len(pvalues)):
         c, s, e, strand, _ = output[i]
         p_tmp = -log10(pvalues[i]) if pvalues[i] > 0 else sys.maxint

@@ -151,7 +151,7 @@ def run_HMM(region_giver, options, bamfiles, genome, chrom_sizes, dims, inputs, 
 def main():
     options, bamfiles, genome, chrom_sizes, dims, inputs = handle_input()
 
-    tracker = Tracker(options.name + '-setup.info', bamfiles, genome, chrom_sizes, dims, inputs, options, __version__)
+    tracker = Tracker(options.name + '_setup.info', bamfiles, genome, chrom_sizes, dims, inputs, options, __version__)
     region_giver = RegionGiver(chrom_sizes, options.regions)
     m, exp_data, func_para, init_mu, init_alpha, distr = train_HMM(region_giver, options, bamfiles, genome,
                                                                    chrom_sizes, dims, inputs, tracker)

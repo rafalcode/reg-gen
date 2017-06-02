@@ -50,9 +50,9 @@ def merge_output(bamfiles, dims, options, no_bw_files, chrom_sizes):
         rep = i if i < dims[0] else i - dims[0]
         sig = 1 if i < dims[0] else 2
 
-        temp_bed = npath(options.name + '-s%s-rep%s_temp.bed' % (sig, rep))
+        temp_bed = npath(options.name + '_s%s_rep%s_temp.bed' % (sig, rep))
 
-        files = [options.name + '-' + str(j) + '-s%s-rep%s.bw' %(sig, rep) for j in no_bw_files]
+        files = [options.name + '-' + str(j) + '_s%s_rep%s.bw' %(sig, rep) for j in no_bw_files]
         if len(no_bw_files) > len(bamfiles):
             files = filter(lambda x: isfile(x), files)
             t = ['bigWigMerge'] + files + [temp_bed]
@@ -61,7 +61,7 @@ def merge_output(bamfiles, dims, options, no_bw_files, chrom_sizes):
 
             os.system("LC_COLLATE=C sort -k1,1 -k2,2n " + temp_bed + ' > ' + temp_bed +'.sort')
 
-            t = ['bedGraphToBigWig', temp_bed + '.sort', chrom_sizes, options.name + '-s%s-rep%s.bw' % (sig, rep)]
+            t = ['bedGraphToBigWig', temp_bed + '.sort', chrom_sizes, options.name + '_s%s_rep%s.bw' % (sig, rep)]
             c = " ".join(t)
             os.system(c)
 
@@ -70,7 +70,7 @@ def merge_output(bamfiles, dims, options, no_bw_files, chrom_sizes):
             os.remove(temp_bed)
             os.remove(temp_bed + ".sort")
         else:
-            ftarget = [options.name + '-s%s-rep%s.bw' %(sig, rep) for j in no_bw_files]
+            ftarget = [options.name + '_s%s_rep%s.bw' %(sig, rep) for j in no_bw_files]
             for i in range(len(ftarget)):
                 c = ['mv', files[i], ftarget[i]]
                 c = " ".join(c)
@@ -314,7 +314,11 @@ def get_peaks(name, DCS, states, exts, merge, distr, pcutoff, debug, no_correcti
         cov2_strand = np.sum(DCS.overall_coverage_strand[0][1][:,DCS.indices_of_interest[i]] + DCS.overall_coverage_strand[1][1][:,DCS.indices_of_interest[i]])
         
         chrom, start, end = DCS._index2coordinates(DCS.indices_of_interest[i])
-        
+
+        # test the start and end size..
+        #print('chrom , start and end are : ')
+        #print(chrom, start, end)
+
         tmp_peaks.append((chrom, start, end, cov1, cov2, strand, cov1_strand, cov2_strand))
         side = 'l' if strand == '+' else 'r'
         tmp_data.append((sum(cov1), sum(cov2), side, distr))
@@ -463,6 +467,27 @@ def _callback_list_float(option, opt, value, parser):
 def handle_input():
     parser = HelpfulOptionParser(usage=__doc__)
 
+    ## add bam option for inpout files : Required
+    parser.add_option("--bam",  dest="bamfiles", default=None, type="str", nargs = 2,
+                      help="Give input .bam files . [default: %default]")
+    ## add chrom sizes : Required
+    parser.add_option("--chrom_sizes", dest="chrom_sizes", type="str",
+                      help="Give chromosome sizes. [default: %default]")
+
+    ## add label option to name output directory and files
+    parser.add_option("-l", "--label", dest="outputlabel", default=["sample1", "sample2"], type="str", nargs=2,
+                      help="Give labels to name output directory and files. [default: %default]")
+
+    ## add genome to specify Input-DNA and the genome (in fasta format) is necessary to correct for GC-content.
+    parser.add_option("--genome", dest="genome", default=None, type="str",
+                      help="Give genome. [default: %default]")
+
+    ## add inputs Input-DNA helps to handle bias in ChIP-seq profiles and can therefore improve the differential peak estimation.
+    parser.add_option("--iDNA", dest="inputDNA", default=None, type="str",
+                      help="Give inputDNA files to handle biases. [default: %default]")
+
+
+    # Actually it does the similar work like labels
     parser.add_option("-n", "--name", default=None, dest="name", type="string",
                       help="Experiment's name and prefix for all files that are created.")
     parser.add_option("-m", "--merge", default=False, dest="merge", action="store_true",
@@ -548,15 +573,43 @@ def handle_input():
         print(__version__)
         sys.exit()
 
-    if len(args) != 1:
-        parser.error("Please give config file")
 
-    config_path = npath(args[0])
+    # config file is required and then we read config file and get parameters
+    if len(args) == 1:
+        # parser.error("Please give config file")
+        config_path = npath(args[0])
+        if isfile(config_path):
+            # parser.error("Config file %s does not exist!" % config_path)
+            bamfiles, genome, chrom_sizes, inputs, dims = input_parser(config_path)
+        else:
+            parser.error("Config file %s does not exist!" % config_path)
+    else:
+        # Now we want to change to command line methods..and I would like to define another function
+        # with function there is a problem that we need to pass a lot of parameters. then at first write here to achieve this
+        #  bamfiles, genome, chrom_sizes, inputs, dims = input_parser(config_path)
+        if not options.bamfiles:
+            parser.error('BamFiles not given')
+        else:
+            # how to extract the files and give them to bamfiles list
+            tmpstr = map(lambda x: x.split(','), options.bamfiles)
+            dim = [len(tmpstr[0]), len(tmpstr[1])]
+            bamfiles = map(npath, tmpstr[0] + tmpstr[1])
 
-    if not isfile(config_path):
-        parser.error("Config file %s does not exist!" % config_path)
+        if not options.chrom_sizes:
+            parser.error('Chromosome size not given')
+        else:
+            chrom_sizes = npath(options.chrom_sizes)
 
-    bamfiles, genome, chrom_sizes, inputs, dims = input_parser(config_path)
+        genome = npath(options.genome)
+        # set inputs parameters
+        tmpstr = map(lambda x: x.split(','), options.inputDNA)
+        dims = [len(tmpstr[0]), len(tmpstr[1])]
+        inputs = map(npath, tmpstr[0] + tmpstr[1])
+
+    # Now we want to change to command line methods..and I would like to define another function
+    # with function there is a problem that we need to pass a lot of parameters. then at first write here to achieve this
+
+    # set genome parameter
 
     if not genome:
         options.no_gc_content = True
@@ -593,9 +646,15 @@ def handle_input():
     if genome and not isfile(genome):
         parser.error("Genome file %s does not exist!" % genome)
 
+    # This code defines the name for file name using time stamp.  But we want to change it, which is semantic
+    # use labels to name files
     if options.name is None:
-        d = str(datetime.now()).replace("-", "_").replace(":", "_").replace(" ", "_").replace(".", "_").split("_")
-        options.name = "THOR-exp" + "-" + "_".join(d[:len(d) - 1])
+        print(options.outputlabel)
+        options.name ='_vs_'.join(options.outputlabel)
+
+#    if options.name is None:
+#       d = str(datetime.now()).replace("-", "_").replace(":", "_").replace(" ", "_").replace(".", "_").split("_")
+#        options.name = "THOR-exp" + "-" + "_".join(d[:len(d) - 1])
 
     if not which("wigToBigWig") or not which("bedGraphToBigWig") or not which("bigWigMerge"):
         print("Warning: wigToBigWig, bigWigMerge or bedGraphToBigWig not found! Signal will not be stored!",
@@ -623,6 +682,7 @@ def handle_input():
         os.mkdir(join(options.outputdir, 'report_'+basename(options.name)+"/"))
         os.mkdir(join(options.outputdir, 'report_'+basename(options.name), 'pics/'))
         os.mkdir(join(options.outputdir, 'report_'+basename(options.name), 'pics/data/'))
+
 
     global FOLDER_REPORT
     global FOLDER_REPORT_PICS
