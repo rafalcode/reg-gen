@@ -88,19 +88,27 @@ class MultiCoverageSet(DualCoverageSet):
         
     
     def _output_input_bw(self, name, chrom_sizes, save_wig):
+        ## name includes the directory of output file..so we use tmpstr to store the labels
+        tmpstr = name[name.rfind('/') + 1:]
+        labels = tmpstr.split('_vs_')
         for i in range(len(self.covs)):
             rep = i if i < self.dim_1 else i-self.dim_1
-            sig = 1 if i < self.dim_1 else 2
+            sig = 0 if i < self.dim_1 else 1
+            ## Here we want to change the name of output bw files, but according to the imported parameters, it's not so easy to change
+            ## So I would like to exact the labels from name,... Nana..not so good, actually
+
             if self.inputs:
-                self.inputs[i].write_bigwig(name + '-' + str(self.counter) + '_input_s%s_rep%s.bw' %(sig, rep), chrom_sizes, save_wig=save_wig, end=self.end)
+                self.inputs[i].write_bigwig(name + '_' + str(self.counter) + '_input_%s_rep%s.bw' %(labels[sig], rep+1), chrom_sizes, save_wig=save_wig, end=self.end)
     
     def _output_bw(self, name, chrom_sizes, save_wig, save_input):
         """Output bigwig files"""
+        tmpstr = name[name.rfind('/') + 1:]
+        labels = tmpstr.split('_vs_')
         for i in range(len(self.covs)):
             rep = i if i < self.dim_1 else i-self.dim_1
-            sig = 1 if i < self.dim_1 else 2
+            sig = 0 if i < self.dim_1 else 1
             
-            self.covs[i].write_bigwig(name + '-' + str(self.counter) + '_s%s_rep%s.bw' %(sig, rep), chrom_sizes, save_wig=save_wig, end=self.end)
+            self.covs[i].write_bigwig(name + '_' + str(self.counter) + '_%s_rep%s.bw' %(labels[sig], rep+1), chrom_sizes, save_wig=save_wig, end=self.end)
         
         #ra = [self.covs_avg, self.input_avg] if self.inputs else [self.covs_avg]
         #for k, d in enumerate(ra):

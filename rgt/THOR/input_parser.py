@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
 from rgt.Util import npath
+from rgt.Util import GenomeData
 
 
 def get_data_block(filepath, feature):
@@ -63,8 +64,15 @@ def input_parser(filepath):
     # the chrom sizes are not optional, but right now it's undefined
     # what happens if the user doesn't specify them, or specifies more
     # than one. So we just relay whatever we got from the file.
-    chrom_sizes = npath(get_data_block(filepath, "chrom_sizes"))
-    chrom_sizes = npath(chrom_sizes) if chrom_sizes else chrom_sizes
+
+    ## read chrom_sizes from config.file
+   # chrom_sizes = npath(get_data_block(filepath, "chrom_sizes"))
+   # chrom_sizes = npath(chrom_sizes) if chrom_sizes else chrom_sizes
+    ## read chrom_sizes from #organism argument
+    organism_name = get_data_block(filepath, "organism") # get organism name
+    print(organism_name)
+    organism = GenomeData(organism=organism_name)
+    chrom_sizes = organism.get_chromosome_sizes()
 
     inputs1 = get_data_block(filepath, "inputs1")
     inputs1 = map(npath, inputs1)
@@ -98,8 +106,7 @@ def commandinput_parser(filepath, ):
     # the chrom sizes are not optional, but right now it's undefined
     # what happens if the user doesn't specify them, or specifies more
     # than one. So we just relay whatever we got from the file.
-    chrom_sizes = npath(get_data_block(filepath, "chrom_sizes"))
-    chrom_sizes = npath(chrom_sizes) if chrom_sizes else chrom_sizes
+
 
     inputs1 = get_data_block(filepath, "inputs1")
     inputs1 = map(npath, inputs1)

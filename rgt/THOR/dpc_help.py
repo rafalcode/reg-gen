@@ -37,6 +37,7 @@ from rgt import __version__
 from numpy import linspace
 from scipy.optimize import curve_fit
 import matplotlib as mpl
+from rgt.Util import GenomeData
 #see http://stackoverflow.com/questions/4931376/generating-matplotlib-graphs-without-a-running-x-server
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -48,11 +49,11 @@ FOLDER_REPORT = None
 def merge_output(bamfiles, dims, options, no_bw_files, chrom_sizes):
     for i in range(len(bamfiles)):
         rep = i if i < dims[0] else i - dims[0]
-        sig = 1 if i < dims[0] else 2
+        sig = 0 if i < dims[0] else 1
 
-        temp_bed = npath(options.name + '_s%s_rep%s_temp.bed' % (sig, rep))
+        temp_bed = npath(options.name + '_%s_rep%s_temp.bed' % (options.outputlabel[sig], rep+1))
 
-        files = [options.name + '-' + str(j) + '_s%s_rep%s.bw' %(sig, rep) for j in no_bw_files]
+        files = [options.name + '_' + str(j) + '_%s_rep%s.bw' %(options.outputlabel[sig], rep+1) for j in no_bw_files]
         if len(no_bw_files) > len(bamfiles):
             files = filter(lambda x: isfile(x), files)
             t = ['bigWigMerge'] + files + [temp_bed]
@@ -61,7 +62,7 @@ def merge_output(bamfiles, dims, options, no_bw_files, chrom_sizes):
 
             os.system("LC_COLLATE=C sort -k1,1 -k2,2n " + temp_bed + ' > ' + temp_bed +'.sort')
 
-            t = ['bedGraphToBigWig', temp_bed + '.sort', chrom_sizes, options.name + '_s%s_rep%s.bw' % (sig, rep)]
+            t = ['bedGraphToBigWig', temp_bed + '.sort', chrom_sizes, options.name + '_%s_rep%s.bw' % (options.outputlabel[sig], rep+1)]
             c = " ".join(t)
             os.system(c)
 
@@ -70,7 +71,7 @@ def merge_output(bamfiles, dims, options, no_bw_files, chrom_sizes):
             os.remove(temp_bed)
             os.remove(temp_bed + ".sort")
         else:
-            ftarget = [options.name + '_s%s_rep%s.bw' %(sig, rep) for j in no_bw_files]
+            ftarget = [options.name + '_%s_rep%s.bw' %(options.outputlabel[sig], rep+1) for j in no_bw_files]
             for i in range(len(ftarget)):
                 c = ['mv', files[i], ftarget[i]]
                 c = " ".join(c)
@@ -455,7 +456,6 @@ class HelpfulOptionParser(OptionParser):
         self.print_help(sys.stderr)
         self.exit(2, "\n%s: error: %s\n" % (self.get_prog_name(), msg))
 
-
 def _callback_list(option, opt, value, parser):
     setattr(parser.values, option.dest, map(lambda x: int(x), value.split(',')))
 
@@ -468,11 +468,13 @@ def handle_input():
     parser = HelpfulOptionParser(usage=__doc__)
 
     ## add bam option for inpout files : Required
-    parser.add_option("--bam",  dest="bamfiles", default=None, type="str", nargs = 2,
-                      help="Give input .bam files . [default: %default]")
+    ## define callback_function to accept variable parameters
+
+    parser.add_option("--bam",  dest="bamfiles", default=None, type="str",  nargs=2,
+                      help="Give input .bam files of two samples, each replicates of every sample should be separeted by comma. [default: %default]")
     ## add chrom sizes : Required
-    parser.add_option("--chrom_sizes", dest="chrom_sizes", type="str",
-                      help="Give chromosome sizes. [default: %default]")
+    parser.add_option("--organism", dest="organism", type="str",
+                      help="Give organism and we define chrom_sizes by it. [default: %default]")
 
     ## add label option to name output directory and files
     parser.add_option("-l", "--label", dest="outputlabel", default=["sample1", "sample2"], type="str", nargs=2,
@@ -591,20 +593,33 @@ def handle_input():
             parser.error('BamFiles not given')
         else:
             # how to extract the files and give them to bamfiles list
-            tmpstr = map(lambda x: x.split(','), options.bamfiles)
-            dim = [len(tmpstr[0]), len(tmpstr[1])]
-            bamfiles = map(npath, tmpstr[0] + tmpstr[1])
+            print('what we get at first')
+            print(options.bamfiles)
+            bam_tmp = map(lambda x: x.split(','), options.bamfiles)
+            print('temporary file for bam files')
+            print(bam_tmp)
+            dims = [len(bam_tmp[0]), len(bam_tmp[1])]
+            bamfiles = map(npath, bam_tmp[0] + bam_tmp[1])
 
-        if not options.chrom_sizes:
-            parser.error('Chromosome size not given')
+        if not options.organism:
+            parser.error('Organism not given')
         else:
-            chrom_sizes = npath(options.chrom_sizes)
+            organism = GenomeData(organism=options.organism)
+            print('organism is %s'%organism)
+            chrom_sizes = organism.get_chromosome_sizes()
 
-        genome = npath(options.genome)
+        genome = None
+        if options.genome:
+            print('options.genome is ')
+            print(options.genome)
+            genome = npath(options.genome)
+            print('genome is %s, means ?'%genome)
+
         # set inputs parameters
-        tmpstr = map(lambda x: x.split(','), options.inputDNA)
-        dims = [len(tmpstr[0]), len(tmpstr[1])]
-        inputs = map(npath, tmpstr[0] + tmpstr[1])
+        inputs = None
+        if options.inputDNA:
+            inputs_tmp = map(lambda x: x.split(','), options.inputDNA)
+            inputs = map(npath, inputs_tmp[0] + inputs_tmp[1])
 
     # Now we want to change to command line methods..and I would like to define another function
     # with function there is a problem that we need to pass a lot of parameters. then at first write here to achieve this
@@ -623,9 +638,12 @@ def handle_input():
     if options.scaling_factors_ip and len(options.scaling_factors_ip) != len(bamfiles):
         parser.error("Number of scaling factors for IP must equal number of bamfiles")
 
+    # check if it is right
+    print('check the output of bamfiles')
+    print(bamfiles)
     for bamfile in bamfiles:
         if not isfile(bamfile):
-            parser.error("BAM file %s does not exist!" % bamfile)
+            parser.error("DKF BAM file %s does not exist!" % bamfile)
 
     if not inputs and options.factors_inputs:
         print("As no input-DNA, do not use input-DNA factors", file=sys.stderr)
@@ -637,7 +655,7 @@ def handle_input():
     if inputs:
         for bamfile in inputs:
             if not isfile(bamfile):
-                parser.error("BAM file %s does not exist!" % bamfile)
+                parser.error("BAM Inputs file %s does not exist!" % bamfile)
 
     if options.regions:
         if not isfile(options.regions):
@@ -646,15 +664,17 @@ def handle_input():
     if genome and not isfile(genome):
         parser.error("Genome file %s does not exist!" % genome)
 
-    # This code defines the name for file name using time stamp.  But we want to change it, which is semantic
+    # This code defines the name for file name using time stamp.
+    #
+#    if options.name is None:
+#       d = str(datetime.now()).replace("-", "_").replace(":", "_").replace(" ", "_").replace(".", "_").split("_")
+#        options.name = "THOR-exp" + "-" + "_".join(d[:len(d) - 1])
+
+    #  But we want to change it, which is semantic
     # use labels to name files
     if options.name is None:
         print(options.outputlabel)
         options.name ='_vs_'.join(options.outputlabel)
-
-#    if options.name is None:
-#       d = str(datetime.now()).replace("-", "_").replace(":", "_").replace(" ", "_").replace(".", "_").split("_")
-#        options.name = "THOR-exp" + "-" + "_".join(d[:len(d) - 1])
 
     if not which("wigToBigWig") or not which("bedGraphToBigWig") or not which("bigWigMerge"):
         print("Warning: wigToBigWig, bigWigMerge or bedGraphToBigWig not found! Signal will not be stored!",
@@ -709,3 +729,7 @@ def handle_input():
         options.exts_inputs = []
 
     return options, bamfiles, genome, chrom_sizes, dims, inputs
+
+
+if __name__ == '__main__':
+    handle_input()
