@@ -180,7 +180,7 @@ class TrainHMM:
         if self.estimate_bias_correction:
             model_fname = os.path.join(self.output_locaiton, "Model", "{}_{}".format(self.k_nb, self.atac_forward_shift))
         else:
-            model_fname = os.path.join(self.output_locaiton, "Model", self.output_fname)
+            model_fname = os.path.join(self.output_locaiton, self.output_fname)
         hmm_model.save_hmm(model_fname)
 
     def output_bed_file(self, states):
