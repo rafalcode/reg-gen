@@ -147,12 +147,12 @@ class GenomicSignal:
         raw_signal = array([min(e, initial_clip) for e in pileup_region.vector])
 
         # Std-based clipping
-        mean = raw_signal.mean()
-        std = raw_signal.std()
-        clip_signal = [min(e, mean + (10 * std)) for e in raw_signal]
+        # mean = raw_signal.mean()
+        # std = raw_signal.std()
+        # clip_signal = [min(e, mean + (10 * std)) for e in raw_signal]
 
         # Cleavage bias correction
-        bias_corrected_signal = self.bias_correction(clip_signal, bias_table, genome_file_name,
+        bias_corrected_signal = self.bias_correction(raw_signal, bias_table, genome_file_name,
                                                      ref, start, end, forward_shift, reverse_shift, strands_specific)
 
         # Boyle normalization (within-dataset normalization)
@@ -167,10 +167,10 @@ class GenomicSignal:
         slope_signal = self.slope(hon_signal, self.sg_coefs)
 
         # Hon normalization on slope signal (between-dataset slope smoothing)
-        abs_seq = array([abs(e) for e in slope_signal])
-        perc = scoreatpercentile(abs_seq, per_slope)
-        std = abs_seq.std()
-        slopehon_signal = self.hon_norm(slope_signal, perc, std)
+        # abs_seq = array([abs(e) for e in slope_signal])
+        # perc = scoreatpercentile(abs_seq, per_slope)
+        # std = abs_seq.std()
+        # slopehon_signal = self.hon_norm(slope_signal, perc, std)
 
         # Writing signal
         if (print_raw_signal):
@@ -195,7 +195,7 @@ class GenomicSignal:
             signal_file.close()
 
         # Returning normalized and slope sequences
-        return hon_signal, slopehon_signal
+        return hon_signal, slope_signal
 
     def bias_correction(self, signal, bias_table, genome_file_name, chrName, start, end,
                         forward_shift, reverse_shift, strands_specific):
@@ -267,11 +267,11 @@ class GenomicSignal:
             rLast = nr[i - (window / 2) + 1]
 
         # Fetching sequence
-        currStr = str(fastaFile.fetch(chrName, p1_wk-1, p2_wk-2)).upper()
-        currRevComp = AuxiliaryFunctions.revcomp(str(fastaFile.fetch(chrName,p1_wk+2, p2_wk+1)).upper())
-        #currStr = str(fastaFile.fetch(chrName, p1_wk, p2_wk - 1)).upper()
-        #currRevComp = AuxiliaryFunctions.revcomp(str(fastaFile.fetch(chrName, p1_wk + 1,
-         #                                                            p2_wk)).upper())
+        # currStr = str(fastaFile.fetch(chrName, p1_wk-1, p2_wk-2)).upper()
+        # currRevComp = AuxiliaryFunctions.revcomp(str(fastaFile.fetch(chrName,p1_wk+2, p2_wk+1)).upper())
+        currStr = str(fastaFile.fetch(chrName, p1_wk, p2_wk - 1)).upper()
+        currRevComp = AuxiliaryFunctions.revcomp(str(fastaFile.fetch(chrName, p1_wk + 1,
+                                                                     p2_wk)).upper())
 
         # Iterating on sequence to create signal
         af = []
@@ -294,15 +294,11 @@ class GenomicSignal:
         fLast = af[0]
         rLast = ar[0]
         bias_corrected_signal = []
-        bias_corrected_signal_forward = []
-        bias_corrected_signal_reverse = []
         for i in range((window / 2), len(af) - (window / 2)):
             nhatf = Nf[i - (window / 2)] * (af[i] / fSum)
             nhatr = Nr[i - (window / 2)] * (ar[i] / rSum)
             zf = log(nf[i] + 1) - log(nhatf + 1)
             zr = log(nr[i] + 1) - log(nhatr + 1)
-            bias_corrected_signal_forward.append(zf)
-            bias_corrected_signal_reverse.append(zr)
             bias_corrected_signal.append(zf + zr)
             fSum -= fLast
             fSum += af[i + (window / 2)]
@@ -311,22 +307,11 @@ class GenomicSignal:
             rSum += ar[i + (window / 2)]
             rLast = ar[i - (window / 2) + 1]
 
-        # Fixing the negative number in bias corrected signal
-        min_value = abs(min(bias_corrected_signal_forward))
-        bias_fixed_signal_forward = [e + min_value for e in bias_corrected_signal_forward]
 
-        min_value = abs(min(bias_corrected_signal_reverse))
-        bias_fixed_signal_reverse = [e + min_value for e in bias_corrected_signal_reverse]
-
-        min_value = abs(min(bias_corrected_signal))
-        bias_fixed_signal = [e + min_value for e in bias_corrected_signal]
 
         # Termination
         fastaFile.close()
-        if not strands_specific:
-            return bias_corrected_signal
-        else:
-            return bias_fixed_signal_forward, bias_fixed_signal_reverse
+        return bias_corrected_signal
 
     def hon_norm(self, sequence, mean, std):
         """
