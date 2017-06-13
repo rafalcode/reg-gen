@@ -72,9 +72,10 @@ def merge_delete(ext_size, merge, peak_list, pvalue_list):
     regions_unmergable = GenomicRegionSet('regions')
     last_orientation = ""
 
-    print(ext_size)
-    print('change ext_size smaller')
-    ext_size = 10
+  #  print(ext_size)
+
+ #   print('change ext_size smaller')
+  #  ext_size = 10
     for i, t in enumerate(peak_list):
         chrom, start, end, c1, c2, strand, ratio = t[0], t[1], t[2], t[3], t[4], t[5], t[6]
         r = GenomicRegion(chrom = chrom, initial = start, final = end, name = '', \

@@ -459,6 +459,17 @@ class HelpfulOptionParser(OptionParser):
 def _callback_list(option, opt, value, parser):
     setattr(parser.values, option.dest, map(lambda x: int(x), value.split(',')))
 
+def _callback_list_string(option, opt, value, parser):
+    assert value
+    filenames = []
+    filenames.append(value)
+
+    for arg in parser.rargs:
+        if arg[:2] == '--' and len(arg) > 2:
+            break
+        filenames.append(arg)
+
+    setattr(parser.values, option.dest, filenames)
 
 def _callback_list_float(option, opt, value, parser):
     setattr(parser.values, option.dest, map(lambda x: float(x), value.split(',')))
@@ -469,9 +480,14 @@ def handle_input():
 
     ## add bam option for inpout files : Required
     ## define callback_function to accept variable parameters
+    parser.add_option("--bam1", dest="bamfiles1", default=None, type='str',  action='callback', callback=_callback_list_string,
+                      help="Give input .bam files . [default: %default]")
 
-    parser.add_option("--bam",  dest="bamfiles", default=None, type="str",  nargs=2,
-                      help="Give input .bam files of two samples, each replicates of every sample should be separeted by comma. [default: %default]")
+    parser.add_option("--bam2", dest="bamfiles2", default=None, type='str',  action='callback', callback=_callback_list_string,
+                      help="Give input .bam files . [default: %default]")
+
+    #parser.add_option("--bam",  dest="bamfiles", default=None, type="str",  nargs=2,\
+    #                  help="Give input .bam files of two samples, each replicates of every sample should be separeted by comma. [default: %default]")
     ## add chrom sizes : Required
     parser.add_option("--organism", dest="organism", type="str",
                       help="Give organism and we define chrom_sizes by it. [default: %default]")
@@ -589,17 +605,20 @@ def handle_input():
         # Now we want to change to command line methods..and I would like to define another function
         # with function there is a problem that we need to pass a lot of parameters. then at first write here to achieve this
         #  bamfiles, genome, chrom_sizes, inputs, dims = input_parser(config_path)
-        if not options.bamfiles:
+        if not options.bamfiles1 or not options.bamfiles2:
             parser.error('BamFiles not given')
         else:
             # how to extract the files and give them to bamfiles list
-            print('what we get at first')
-            print(options.bamfiles)
-            bam_tmp = map(lambda x: x.split(','), options.bamfiles)
-            print('temporary file for bam files')
-            print(bam_tmp)
-            dims = [len(bam_tmp[0]), len(bam_tmp[1])]
-            bamfiles = map(npath, bam_tmp[0] + bam_tmp[1])
+           # print('what we get at first')
+           # print(options.bamfiles1 + options.bamfiles2)
+          #  bam_tmp = map(lambda x: x.split(','), options.bamfiles)
+          #  print('temporary file for bam files')
+          #  print(bam_tmp)
+            bamfiles = options.bamfiles1 + options.bamfiles2
+            dims = [len(options.bamfiles1), len(options.bamfiles2)]
+           # print(dims)
+         #   dims = [len(bam_tmp[0]), len(bam_tmp[1])]
+          #  bamfiles = map(npath, bam_tmp[0] + bam_tmp[1])
 
         if not options.organism:
             parser.error('Organism not given')
@@ -639,8 +658,8 @@ def handle_input():
         parser.error("Number of scaling factors for IP must equal number of bamfiles")
 
     # check if it is right
-    print('check the output of bamfiles')
-    print(bamfiles)
+   # print('check the output of bamfiles')
+   # print(bamfiles)
     for bamfile in bamfiles:
         if not isfile(bamfile):
             parser.error("DKF BAM file %s does not exist!" % bamfile)
@@ -673,7 +692,7 @@ def handle_input():
     #  But we want to change it, which is semantic
     # use labels to name files
     if options.name is None:
-        print(options.outputlabel)
+        # print(options.outputlabel)
         options.name ='_vs_'.join(options.outputlabel)
 
     if not which("wigToBigWig") or not which("bedGraphToBigWig") or not which("bigWigMerge"):

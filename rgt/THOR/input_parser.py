@@ -61,6 +61,7 @@ def input_parser(filepath):
     genome = get_data_block(filepath, "genome")
     genome = npath(genome) if genome else None
 
+
     # the chrom sizes are not optional, but right now it's undefined
     # what happens if the user doesn't specify them, or specifies more
     # than one. So we just relay whatever we got from the file.
@@ -73,6 +74,10 @@ def input_parser(filepath):
     print(organism_name)
     organism = GenomeData(organism=organism_name)
     chrom_sizes = organism.get_chromosome_sizes()
+
+    ## Now read genome also through the #organism parameter..
+    # by default we use it, unless we mark no-gc-content
+    new_genome =  organism.get_genome()
 
     inputs1 = get_data_block(filepath, "inputs1")
     inputs1 = map(npath, inputs1)
