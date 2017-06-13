@@ -146,9 +146,9 @@ class DiffFootprints:
             nhatr = Nr[i - (window / 2)] * (ar[i] / rSum)
             zf = log(nf[i] + 1) - log(nhatf + 1)
             zr = log(nr[i] + 1) - log(nhatr + 1)
-            #bias_corrected_signal.append(zf + zr)
-            bias_corrected_signal.append(nhatf + nhatr)
-            bias_corrected_tc.append(nhatf + nhatr)
+            bias_corrected_signal.append(zf + zr)
+            #bias_corrected_signal.append(nhatf + nhatr)
+            bias_corrected_tc.append(nf[i] + nr[i])
             #bias_corrected_tc.append(nf[i] / af[i] + nr[i] / ar[i])
             fSum -= fLast
             fSum += af[i + (window / 2)]
