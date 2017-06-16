@@ -148,6 +148,7 @@ if __name__ == "__main__":
                                   help="Target BED file")
     parser_bedrename.add_argument('-genes', metavar='  ', default=False, type=str,
                                   help="Target gene list")
+
     ############### BED change strand ###############################################
     # python rgt-convertor.py
     parser_bedchstrand = subparsers.add_parser('bed_change_strand', help="[BED] Change strand of regions by the target BED file")
@@ -811,7 +812,7 @@ if __name__ == "__main__":
                     if reg[0] == r.chrom and reg[1] == r.initial and reg[2] == r.final:
                         name = "peak_"+str(j+1)
             elif args.loci:
-                name = r.toString()
+                name = r.toString(underline=True)
             else: name = r.name
 
             if r.data and len(r.data.split()) == 7:

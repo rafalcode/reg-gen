@@ -902,12 +902,13 @@ def rna_associated_gene(rna_regions, name, organism):
         g.add( GenomicRegion(chrom=s[0], initial=s[1], final=s[2], name=name, orientation=s[3]) )
         asso_genes = g.gene_association(organism=organism, promoterLength=1000, show_dis=True)
 
-        genes = asso_genes[0].name.split(":")
+        # genes = asso_genes[0].name.split(":")
         closest_genes = []
-        for n in genes:
-            if name not in n: closest_genes.append(n)
+        for g in asso_genes:
+            gnames = g.name.split(":")
+            for n in gnames:
+                if name not in n: closest_genes.append(n)
         closest_genes = set(closest_genes)
-
         if len(closest_genes) == 0:
             return "."
         else:
@@ -1114,6 +1115,14 @@ def get_rna_region_str(rna):
     """Getting the rna region from the information header with the pattern:
             REGION_chr3_51978050_51983935_-_
         or  chr3:51978050-51983935 -    """
+
+    def decode_loci(loci):
+        l = loci.partition("chr")[2]
+        chrom = "chr" + l.partition(":")[0]
+        start = int(l.partition(":")[2].partition("-")[0])
+        end = int(l.partition(":")[2].partition("-")[2].split()[0])
+        return chrom, start, end
+
     rna_regions = []
     with open(rna) as f:
         for line in f:
@@ -1133,16 +1142,25 @@ def get_rna_region_str(rna):
                 
                 elif "chr" in line:
                     try:
-                        l = line.partition("chr")[2]
-                        chrom = "chr" + l.partition(":")[0]
-                        start = int(l.partition(":")[2].partition("-")[0])
-                        end = int(l.partition(":")[2].partition("-")[2].split()[0])
-                        sign = l.partition(":")[2].partition("-")[2].split()[1]
+                        line = line.split()
+                        loci_ind = 0
+                        sign = None
+                        score = None
+                        for i, l in enumerate(line):
+                            if l.startswith("chr") and ":" in l and "-" in l:
+                                c, s, e = decode_loci(l)
+                                loci_ind = i
+                            if "strand" in l:
+                                sign = l.partition("strand=")[2][0]
+                            if "score" in l:
+                                score = float(l.partition("score=")[2])
+
+                        if not sign:
+                            sign = line[loci_ind+1]
                         if sign == "+" or sign == "-" or sign == ".":
-                            r = [chrom, start, end, sign]
-                        elif "strand" in line:
-                            s = l.partition("strand=")[2][0]
-                            r = [chrom, start, end, s]
+                            r = [c, s, e, sign]
+                        if score:
+                            r.append(score)
                         else:
                             print(line)
                     except:
@@ -1151,10 +1169,6 @@ def get_rna_region_str(rna):
                 else:
                     r = []
                 # Score
-                if "score" in line:
-                    ss = line.partition("score")[2].partition("=")[2]
-                    score = float(ss.split()[0])
-                    r.append(score)
                 if r:
                     rna_regions.append(r)
     # if rna_regions:
@@ -1238,20 +1252,73 @@ def integrate_stat(path):
             # print([data[item][o] for o in order_stat])
             print("\t".join([data[item][o] for o in order_stat]), file=g)
 
+def summerize_stat(target, link_d):
+    base = os.path.basename(target)
+    h = os.path.join(target, "index.html")
+    stat = os.path.join(target, "statistics_" + base + ".txt")
+    fp = "./style"
+    html = Html(name=base, links_dict=link_d,
+                fig_rpath=fp, homepage="../index.html",
+                RGT_header=False, other_logo="TDF")
+    html.add_heading(target)
+    data_table = []
+    type_list = 'sssssssssssss'
+    col_size_list = [20] * 20
+    c = 0
+    header_list = ["No.", "RNA", "Closest genes",
+                   "Exon", "Length", "Score*",
+                   "Norm DBS*", "Norm DBD*", "Number sig_DBD", "Autobinding",
+                   "Organism", "Target region", "Rank*"]
+
+    with open(stat) as f_stat:
+        for line in f_stat:
+            if line.startswith("title"):
+                continue
+            elif not line.strip():
+                continue
+            else:
+                c += 1
+                l = line.strip().split()
+                hh = "./" + l[0] + "/index.html"
+                if l[14] == "0":
+                    tag = l[0]
+                else:
+                    tag = '<a href="' + hh + '">' + l[0] + "</a>"
+                data_table.append([str(c), tag, l[17],
+                                   l[3], l[4], l[18],
+                                   l[15], l[14], l[8], l[20],
+                                   l[2], l[5]])
+    # print(data_table)
+    rank_dbd = len(data_table) - rank_array([float(x[7]) for x in data_table])
+    rank_dbs = len(data_table) - rank_array([float(x[6]) for x in data_table])
+    rank_exp = len(data_table) - rank_array([0 if x[5] == "n.a." else abs(float(x[5])) for x in data_table])
+    rank_sum = [x + y + z for x, y, z in zip(rank_dbd, rank_dbs, rank_exp)]
+
+    for i, d in enumerate(data_table):
+        d.append(str(rank_sum[i]))
+    nd = natsort_ob.natsorted(data_table, key=lambda x: x[-1])
+    html.add_zebra_table(header_list, col_size_list, type_list, nd,
+                         sortable=True, clean=True)
+    html.add_fixed_rank_sortable()
+    html.write(h)
+
+
 def merge_DBD_regions(path):
     """Merge all available DBD regions in BED format. """
-
-    for t in os.listdir(path):
-        if os.path.isdir(os.path.join(path, t)):
-            dbd_pool = GenomicRegionSet(t)
-            for rna in os.listdir(os.path.join(path,t)):
-                f = os.path.join(path, t, rna, "DBD_"+rna+".bed")
-                if os.path.exists(f):
-                    dbd = GenomicRegionSet(rna)
-                    dbd.read_bed(f)
-                    for r in dbd: r.name = rna+"_"+r.name
-                    dbd_pool.combine(dbd)
-            dbd_pool.write_bed(os.path.join(path, t, "DBD_"+t+".bed"))
+    base = os.path.basename(path)
+    dir_name = os.path.basename(os.path.dirname(path))
+    dbd_pool = GenomicRegionSet(dir_name + "_" + base)
+    for rna in os.listdir(path):
+        if os.path.isdir(os.path.join(path, rna)):
+            f = os.path.join(path, rna, rna+"_DBDs.bed")
+            if os.path.exists(f):
+                print(f)
+                dbd = GenomicRegionSet(rna)
+                dbd.read_bed(f)
+                for r in dbd: r.name = rna+"_"+r.name
+                dbd_pool.combine(dbd)
+    print(len(dbd_pool))
+    dbd_pool.write_bed(os.path.join(path, "DBD_"+dir_name + "_" + base +".bed"))
 
 
 def save_profile(rna_regions, rna_name, organism, output, bed,\
@@ -1319,3 +1386,54 @@ def silentremove(filename):
     except OSError as e: # this would be "except OSError, e:" before Python 2.6
         if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
             raise # re-raise exception if a different error occurred
+
+def integrate_html(target):
+    # Project level index file
+    condition_list = []  # name, link, no. tests, no. sig.
+
+    for item in os.listdir(target):
+        if item == "style": continue
+        if os.path.isfile(os.path.join(target, item)):
+            continue
+        elif os.path.isdir(os.path.join(target, item)):
+            h = os.path.join(item, "index.html")
+            stat = os.path.join(target, item, "statistics_" + item + ".txt")
+
+            if os.path.isfile(stat):
+                nt = 0
+                ns = 0
+                with open(stat) as f:
+                    for line in f:
+                        line = line.strip().split("\t")
+                        if line[0] == "title": continue
+                        nt += 1
+                        if float(line[13]) < 0.05: ns += 1
+                # print([item, h, str(nt), str(ns)])
+                condition_list.append([item, h, str(nt), str(ns)])
+
+    if len(condition_list) > 0:
+        # print(condition_list)
+        link_d = {}
+        for item in os.listdir(os.path.dirname(target)):
+            if os.path.isfile(os.path.dirname(target) + "/" + item + "/index.html"):
+                link_d[item] = "../" + item + "/index.html"
+
+        fp = condition_list[0][0] + "/style"
+        html = Html(name="Directory: " + target, links_dict=link_d,
+                    fig_rpath=fp,
+                    RGT_header=False, other_logo="TDF")
+        html.add_heading("All conditions in: " + target + "/")
+        data_table = []
+        type_list = 'sssssssssssss'
+        col_size_list = [20] * 10
+        c = 0
+        header_list = ["No.", "Conditions", "No. tests", "No. sig. tests"]
+        for i, exp in enumerate(condition_list):
+            c += 1
+            data_table.append([str(c),
+                               '<a href="' + exp[1] + '">' + exp[0] + "</a>",
+                               exp[2], exp[3]])
+        html.add_zebra_table(header_list, col_size_list, type_list, data_table,
+                             sortable=True, clean=True)
+        html.add_fixed_rank_sortable()
+        html.write(os.path.join(target, "index.html"))
