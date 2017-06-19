@@ -2,12 +2,14 @@
 import os
 import numpy as np
 import pysam
-from pysam import __version__ as ps_version
 from pysam import Samfile
 from pysam import Fastafile
 from math import log, ceil, floor
 from Bio import motifs
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 import pyx
 from scipy import stats
 
@@ -88,14 +90,13 @@ class DiffFootprints:
         nf = [i * factor for i in nf]
         nr = [i * factor for i in nr]
         # Std-based clipping to avoid spurious high counts
+        # mean = np.array(nf).mean()
+        # std = np.array(nf).std()
+        # nf = [min(e, mean + (10 * std)) for e in nf]
 
-        mean = np.array(nf).mean()
-        std = np.array(nf).std()
-        nf = [min(e, mean + (10 * std)) for e in nf]
-
-        mean = np.array(nr).mean()
-        std = np.array(nr).std()
-        nr = [min(e, mean + (10 * std)) for e in nr]
+        # mean = np.array(nr).mean()
+        # std = np.array(nr).std()
+        # nr = [min(e, mean + (10 * std)) for e in nr]
 
         # Smoothed counts
         Nf = []
@@ -177,9 +178,21 @@ class DiffFootprints:
         spr = (nr - nc) / motif_length + (nl - nc) / motif_length
         fos = (nr + 1) / (nc + 1) + (nl + 1) / (nc + 1)
 
-        nr = sum(bias_corrected_tc[signal_half_len + motif_half_len:signal_half_len + motif_half_len + motif_length])
-        nl = sum(bias_corrected_tc[signal_half_len - motif_half_len - motif_length:signal_half_len - motif_half_len])
-        tc = (nr + nl) / (2 * motif_length)
+        # nc_mean = sum(bc_signal[signal_half_len - motif_half_len:signal_half_len + motif_half_len]) / motif_length
+        # nl_mean = sum(bc_signal[:signal_half_len - motif_half_len]) / len(bc_signal[:signal_half_len - motif_half_len])
+        # nr_mean = sum(bc_signal[signal_half_len + motif_half_len:]) / len(bc_signal[signal_half_len + motif_half_len:])
+        #
+        # spr = nl_mean + nr_mean - 2 * nc_mean
+        # fos = (nl_mean + 1) / (nc_mean + 1) + (nr_mean + 1) / (nc_mean + 1)
+
+        #nr = sum(bias_corrected_tc[signal_half_len + motif_half_len:signal_half_len + motif_half_len + motif_length])
+        #nl = sum(bias_corrected_tc[signal_half_len - motif_half_len - motif_length:signal_half_len - motif_half_len])
+        #tc = (nr + nl) / (2 * motif_length)
+        nr = sum(bias_corrected_tc[signal_half_len + motif_half_len:]) / len(
+             bias_corrected_tc[signal_half_len + motif_half_len:])
+        nl = sum(bias_corrected_tc[:signal_half_len - motif_half_len]) / len(
+             bias_corrected_tc[:signal_half_len - motif_half_len])
+        tc = (nr + nl) / 2
 
         return spr, tc, fos, np.array(bc_signal), np.array(bias_corrected_tc)
 
@@ -593,7 +606,7 @@ class DiffFootprints:
                 self.plot(mpbs_name, tccorrectedSignalMean1, tccorrectedSignalMean2,
                           pwm_dict, self.output_location, self.output_prefix)
 
-    def diff2(self):
+    def diff2(self, factor1, factor2):
         mpbs = GenomicRegionSet("Motif Predicted Binding Sites")
         mpbs.read_bed(self.mpbs_file)
 
@@ -612,56 +625,67 @@ class DiffFootprints:
             bias_table2 = BiasTable().load_table(table_file_name_F=table_list[0], table_file_name_R=table_list[1])
 
         # Compute the number of total non-mitochondrial tag counts located in footprints
-        total_tc1 = 0
-        total_tc2 = 0
-        signal1 = GenomicSignal(self.reads_file1)
-        signal2 = GenomicSignal(self.reads_file2)
-        for region in mpbs:
-            mid = (region.final + region.initial) / 2
-            p1 = max(mid - self.window_size / 2, 0)
-            p2 = mid + self.window_size / 2
+        if factor1 == None and factor2 == None:
+            total_tc1 = 0
+            total_tc2 = 0
+            signal1 = GenomicSignal(self.reads_file1)
+            signal2 = GenomicSignal(self.reads_file2)
+            for region in mpbs:
+                mid = (region.final + region.initial) / 2
+                p1 = max(mid - self.window_size / 2, 0)
+                p2 = mid + self.window_size / 2
 
-            total_tc1 += signal1.get_tag_count(ref=region.chrom, start=p1, end=p2,
-                                               downstream_ext=self.downstream_ext, upstream_ext=self.upstream_ext,
-                                               forward_shift=self.forward_shift, reverse_shift=self.reverse_shift)
-            total_tc2 += signal2.get_tag_count(ref=region.chrom, start=p1, end=p2,
-                                               downstream_ext=self.downstream_ext, upstream_ext=self.upstream_ext,
-                                               forward_shift=self.forward_shift, reverse_shift=self.reverse_shift)
+                total_tc1 += signal1.get_tag_count(ref=region.chrom, start=p1, end=p2,
+                                                   downstream_ext=self.downstream_ext, upstream_ext=self.upstream_ext,
+                                                   forward_shift=self.forward_shift, reverse_shift=self.reverse_shift)
+                total_tc2 += signal2.get_tag_count(ref=region.chrom, start=p1, end=p2,
+                                                   downstream_ext=self.downstream_ext, upstream_ext=self.upstream_ext,
+                                                   forward_shift=self.forward_shift, reverse_shift=self.reverse_shift)
 
 
-        if (total_tc1 > total_tc2):
-            factor1 = 1.0
-            factor2 = total_tc1 / float(total_tc2)
-        else:
-            factor2 = 1.0
-            factor1 = total_tc2 / float(total_tc1)
+            if (total_tc1 > total_tc2):
+                factor1 = 1.0
+                factor2 = total_tc1 / float(total_tc2)
+            else:
+                factor2 = 1.0
+                factor1 = total_tc2 / float(total_tc1)
 
-        self.output_factor(factor1, factor2)
+            self.output_factor(factor1, factor2)
 
         # Iterating on MPBSs
         bam1 = Samfile(self.reads_file1, "rb")
         bam2 = Samfile(self.reads_file2, "rb")
+
+        prot_dict1 = dict()
+        tc_dict1 = dict()
+        prot_dict2 = dict()
+        tc_dict2 = dict()
         for mpbs_name in mpbs_name_list:
             pwm_dict = dict([("A", [0.0] * self.window_size), ("C", [0.0] * self.window_size),
                              ("G", [0.0] * self.window_size), ("T", [0.0] * self.window_size),
                              ("N", [0.0] * self.window_size)])
 
             mpbs_regions = mpbs.by_names([mpbs_name])
-            spr1_list = list()
-            spr2_list = list()
-            tc1_list = list()
-            tc2_list = list()
-            fc1_list = list()
-            fc2_list = list()
-            spr1 = 0.0
-            spr2 = 0.0
-            dspr = 0.0
-            tc1 = 0
-            tc2 = 0
-            dtc = 0
-            fc1 = 0
-            fc2 = 0
-            dfc = 0
+            prot_dict1[mpbs_name] = list()
+            prot_dict2[mpbs_name] = list()
+            tc_dict1[mpbs_name] = list()
+            tc_dict2[mpbs_name] = list()
+
+            # spr1_list = list()
+            # spr2_list = list()
+            # tc1_list = list()
+            # tc2_list = list()
+            # fc1_list = list()
+            # fc2_list = list()
+            # spr1 = 0.0
+            # spr2 = 0.0
+            # dspr = 0.0
+            # tc1 = 0
+            # tc2 = 0
+            # dtc = 0
+            # fc1 = 0
+            # fc2 = 0
+            # dfc = 0
             corrected_signal1 = []
             corrected_signal2 = []
             dcorrected_signal = []
@@ -684,24 +708,27 @@ class DiffFootprints:
                     self.get_stats(bam=bam2, bias_table=bias_table2,
                                    genome_file_name=genome_data.get_genome(),
                                    chrName=region.chrom, start=p1, end=p2, motif_length=length, factor=factor2)
-                spr1 += sp1
-                spr2 += sp2
-                #dspr += max(0, sp2) - max(0, sp1)
-                dspr += sp2 - sp1
-                tc1 += tc_1
-                tc2 += tc_2
-                dtc += tc_2 - tc_1
-                fc1 += fc_1
-                fc2 += fc_2
-                dfc += fc_2 - fc_1
+                # spr1 += sp1
+                # spr2 += sp2
+                # dspr += sp2 - sp1
+                # tc1 += tc_1
+                # tc2 += tc_2
+                # dtc += tc_2 - tc_1
+                # fc1 += fc_1
+                # fc2 += fc_2
+                # dfc += fc_2 - fc_1
 
-                spr1_list.append(sp1)
-                spr2_list.append(sp2)
-                tc1_list.append(tc_1)
-                fc1_list.append(fc_1)
+                prot_dict1[mpbs_name].append(sp1)
+                prot_dict2[mpbs_name].append(sp2)
+                tc_dict1[mpbs_name].append(tc_1)
+                tc_dict2[mpbs_name].append(tc_2)
 
-                tc2_list.append(tc_2)
-                fc2_list.append(fc_2)
+                # spr1_list.append(sp1)
+                # spr2_list.append(sp2)
+                # tc1_list.append(tc_1)
+                # fc1_list.append(fc_1)
+                # tc2_list.append(tc_2)
+                # fc2_list.append(fc_2)
 
                 if (region.orientation == "-"):
                     corrected_signal_1 = corrected_signal_1[::-1]
@@ -741,59 +768,83 @@ class DiffFootprints:
 
             # Updating protection
             if (counter > 0):
-                protmean1 = spr1 / counter
-                protmean2 = spr2 / counter
-                difprotmean = dspr / counter
-                tcmean1 = tc1 / counter
-                tcmean2 = tc2 / counter
-                diftcmean = dtc / counter
-                fcmean1 = fc1 / counter
-                fcmean2 = fc2 / counter
-                diffcmean = dfc / counter
-                corrected_signal1_mean = corrected_signal1 / counter
-                corrected_signal2_mean = corrected_signal2 / counter
-                dcorrected_signal_mean = dcorrected_signal / counter
+                # protmean1 = spr1 / counter
+                # protmean2 = spr2 / counter
+                # difprotmean = dspr / counter
+                # tcmean1 = tc1 / counter
+                # tcmean2 = tc2 / counter
+                # diftcmean = dtc / counter
+                # fcmean1 = fc1 / counter
+                # fcmean2 = fc2 / counter
+                # diffcmean = dfc / counter
+                # corrected_signal1_mean = corrected_signal1 / counter
+                # corrected_signal2_mean = corrected_signal2 / counter
+                # dcorrected_signal_mean = dcorrected_signal / counter
                 tccorrectedSignalMean1 = tc_corrected_signal1 / counter
                 tccorrectedSignalMean2 = tc_corrected_signal2 / counter
-                dtc_corrected_signal = dtc_corrected_signal / counter
+                # dtc_corrected_signal = dtc_corrected_signal / counter
 
                 # Kolmogorov-Smirnov test
-                spr_ks_stat, spr_ks_pvalue = stats.ks_2samp(np.array(spr2_list), np.array(spr1_list))
-                tc_ks_stat, tc_ks_pvalue = stats.ks_2samp(np.array(tc2_list), np.array(tc1_list))
-                fc_ks_stat, fc_ks_pvalue = stats.ks_2samp(np.array(fc2_list), np.array(fc1_list))
+                # spr_ks_stat, spr_ks_pvalue = stats.ks_2samp(np.array(spr2_list), np.array(spr1_list))
+                # tc_ks_stat, tc_ks_pvalue = stats.ks_2samp(np.array(tc2_list), np.array(tc1_list))
+                # fc_ks_stat, fc_ks_pvalue = stats.ks_2samp(np.array(fc2_list), np.array(fc1_list))
 
                 # Calculates the T-test for the mean of ONE group of scores
-                dspr = np.subtract(np.array(spr2_list), np.array(spr1_list))
-                dtc = np.subtract(np.array(tc2_list), np.array(tc1_list))
-                dfc = np.subtract(np.array(fc2_list), np.array(fc1_list))
+                # dspr = np.subtract(np.array(spr2_list), np.array(spr1_list))
+                # dtc = np.subtract(np.array(tc2_list), np.array(tc1_list))
+                # dfc = np.subtract(np.array(fc2_list), np.array(fc1_list))
 
-                spr_t_1samp_stat, spr_t_1samp_pvalue = stats.ttest_1samp(dspr, 0.0)
-                tc_t_1samp_stat, tc_t_1samp_pvalue = stats.ttest_1samp(dtc, 0.0)
-                fc_t_1samp_stat, fc_t_1samp_pvalue = stats.ttest_1samp(dfc, 0.0)
+                # spr_t_1samp_stat, spr_t_1samp_pvalue = stats.ttest_1samp(dspr, 0.0)
+                # tc_t_1samp_stat, tc_t_1samp_pvalue = stats.ttest_1samp(dtc, 0.0)
+                # fc_t_1samp_stat, fc_t_1samp_pvalue = stats.ttest_1samp(dfc, 0.0)
 
                 # Calculates the T-test for the means of two independent samples of scores.
-                spr_ttest_ind_stat, spr_ttest_ind_pvalue = stats.ttest_ind(np.array(spr2_list), np.array(spr1_list))
-                tc_ttest_ind_stat, tc_ttest_ind_pvalue = stats.ttest_ind(np.array(tc2_list), np.array(tc1_list))
-                fc_ttest_ind_stat, fc_ttest_ind_pvalue = stats.ttest_ind(np.array(fc2_list), np.array(fc1_list))
+                # spr_ttest_ind_stat, spr_ttest_ind_pvalue = stats.ttest_ind(np.array(spr2_list), np.array(spr1_list))
+                # tc_ttest_ind_stat, tc_ttest_ind_pvalue = stats.ttest_ind(np.array(tc2_list), np.array(tc1_list))
+                # fc_ttest_ind_stat, fc_ttest_ind_pvalue = stats.ttest_ind(np.array(fc2_list), np.array(fc1_list))
 
-                res = [protmean1, protmean2, difprotmean,
-                       spr_ks_stat, spr_ks_pvalue, spr_t_1samp_stat, spr_t_1samp_pvalue, spr_ttest_ind_stat,
-                       spr_ttest_ind_pvalue,
-                       tcmean1, tcmean2, diftcmean,
-                       tc_ks_stat, tc_ks_pvalue, tc_t_1samp_stat, tc_t_1samp_pvalue, tc_ttest_ind_stat,
-                       tc_ttest_ind_pvalue,
-                       fcmean1, fcmean2, diffcmean,
-                       fc_ks_stat, fc_ks_pvalue, fc_t_1samp_stat, fc_t_1samp_pvalue, fc_ttest_ind_stat,
-                       fc_ttest_ind_pvalue,
-                       counter]
-                output_file = os.path.join(self.output_location, "{}.txt".format(self.output_prefix))
-                f = open(output_file, "a")
-                f.write("\t".join([mpbs_name] + [str(i) for i in res]))
-                f.write("\n")
-                f.close()
 
                 self.plot(mpbs_name, tccorrectedSignalMean1, tccorrectedSignalMean2,
                           pwm_dict, self.output_location, self.output_prefix)
+
+        # Compute the median differences of the all motifs
+        mean_diff_prot = list()
+        mean_diff_tc = list()
+        for mpbs_name in mpbs_name_list:
+            mean_diff_prot.append(np.mean(np.array(prot_dict2[mpbs_name])- np.array(prot_dict1[mpbs_name])))
+            mean_diff_tc.append(np.mean(np.array(tc_dict2[mpbs_name]) - np.array(tc_dict1[mpbs_name])))
+
+        median_diff_prot = np.median(np.array(mean_diff_prot))
+        median_diff_tc = np.median(np.array(mean_diff_tc))
+        self.output_mu(median_diff_prot, median_diff_tc)
+
+        mu = [median_diff_prot, median_diff_tc]
+        output_file = os.path.join(self.output_location, "{}.txt".format(self.output_prefix))
+        f = open(output_file, "a")
+        for mpbs_name in mpbs_name_list:
+            count = len(prot_dict1[mpbs_name])
+
+            mean_prot1 = sum(prot_dict1[mpbs_name]) / count
+            mean_prot2 = sum(prot_dict2[mpbs_name]) / count
+            mean_tc1 = sum(tc_dict1[mpbs_name]) / count
+            mean_tc2 = sum(tc_dict2[mpbs_name]) / count
+            mean_diff_prot = mean_prot2 - mean_prot1
+            mean_diff_tc = mean_tc2 - mean_tc1
+
+            #diff_prot = list()
+            #for i in range(len(prot_dict2[mpbs_name])):
+            #    diff = max(0, prot_dict2[mpbs_name][i]) - max(0, prot_dict1[mpbs_name][i])
+            #    diff_prot.append(diff)
+            diff_prot = np.array(prot_dict2[mpbs_name]) - np.array(prot_dict1[mpbs_name])
+            diff_tc = np.array(tc_dict2[mpbs_name]) - np.array(tc_dict1[mpbs_name])
+
+            X = [diff_prot.tolist(), diff_tc.tolist()]
+            stats, pvalue = self.hotellings(np.matrix(X).T, np.matrix(mu))
+
+            res = [mean_prot1, mean_prot2, mean_diff_prot, mean_tc1, mean_tc2, mean_diff_tc, stats, pvalue, count]
+            f.write("\t".join([mpbs_name] + [str(i) for i in res]))
+            f.write("\n")
+        f.close()
 
     def diff3(self):
         mpbs = GenomicRegionSet("Motif Predicted Binding Sites")
@@ -1067,3 +1118,28 @@ class DiffFootprints:
         f.write("Factor1: " + str(factor1) + "\n")
         f.write("Factor2: " + str(factor2) + "\n")
         f.close()
+
+    def output_mu(self, median_diff_prot, median_diff_tc):
+        output_file = os.path.join(self.output_location, "{}_mu.txt".format(self.output_prefix))
+        f = open(output_file, "w")
+        f.write("median_diff_prot: " + str(median_diff_prot) + "\n")
+        f.write("median_diff_tc: " + str(median_diff_tc) + "\n")
+        f.close()
+
+    def hotellings(self, X, mu):
+        '''
+        One-sample Hotelling's T2 test.
+        :param X:
+        :param mu:
+        :return:
+        '''
+        x = X - mu
+        n = x.shape[0]
+        k = x.shape[1]
+        m = x.mean(axis=0)  # mean vector
+        S = np.cov(x.T)     # covariance
+        t2 = n * m * np.linalg.inv(S) * m.T
+        pvalue = stats.chi2.sf(np.sqrt(t2), k)
+
+
+        return t2.tolist()[0][0], pvalue[0][0]

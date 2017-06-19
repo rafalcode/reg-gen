@@ -1,62 +1,53 @@
 import numpy as np
 
+map = {'A':0, 'C':1, 'G':2, 'T':3}
 
 class LSlim:
 
-    def __init__(self, length, order, distance, ess, q, t):
+    def __init__(self, length, distance):
         self.length = length
-        self.order = order
         self.distance = distance
-        self.ess = ess,
-        self.q = q
-        self.type_ = t
 
         # parameters
-        self.dependencyParameters = [None] * length
-        self.componentMixtureParameters = [None] * length
-        self.ancestorMixtureParameters = [None] * length
-
-        self.localMixtureScore = [None] * (order + 1)
-
-        a = (self.alphabets.getAlphabetLengthAt(0))
-        l = 0
-        while l < length:
-            self.componentMixtureParameters[l] = [None] * (min(l, order) + 1)
-            self.dependencyParameters[l] = [None] * (min(l, order) + 1)
-            self.ancestorMixtureParameters[l] = [None] * (min(l, order) + 1)
-
-            context = 1
-            dist = 1
-            o = 0
-            while o < min(l, order) + 1:
-                self.dependencyParameters[l][o] = [None] * context
-                if o != 0:
-                    dist = min(l - o + 1, distance)
-                self.ancestorMixtureParameters[l][o] = [None] * dist
-                context *= a
-            o += 1
-        l += 1
-        self.init()
+        self.prob_c, self.prob_c0, self.prob_c1, self.prob_c1_m = self.init()
 
     def init(self):
-        self.localMixtureScore = [None] * self.order + 1
-        self.ancestorScore = [None] * self.order + 1
-        self.e = [None] * self.order + 1
+        # probabilities of independent or conditional depending on previous positions
+        prob_c = np.random.dirichlet(np.ones(2), size=self.length-1)
+        prob_c0 = np.random.dirichlet(np.ones(4), size=self.length)
+        prob_c1 = np.zeros((self.length-1, 4, 4))
+        prob_c1_m = list()
+
+        conditional_params = list()
+        for k in range(0, self.length-1):
+            prob_c1[k] = np.random.dirichlet(np.ones(4), size=4)
+
+        for k in range(1, self.length):
+            if k < self.distance:
+                prob_c1_m.append(np.random.dirichlet(np.ones(k), size=1).tolist()[0])
+            else:
+                prob_c1_m.append(np.random.dirichlet(np.ones(self.distance), size=1).tolist()[0])
+
+        return prob_c, prob_c0, prob_c1, prob_c1_m
 
 
-    # def pre_compute(self):
-    #     l = 0
-    #     while l < self.length:
-    #         self.componentMixtureLogNorm[l] = self.logSumNormalisation(componentMixtureParameters[l], 0,
-    #                                                                    componentMixtureParameters[l].length,
-    #                                                                    componentMixturePotential[l], 0)
+    #def loglikelihood(self):
+
+    # def likelihood(self, x):
+    #     vec = self.seq2vec(x)
+    #     prob = 1.0
     #
-    # def logSumNormalisation(self, d, startD, endD, offset, secondValues, dest, startDest):
-    #     sum = 0.0
-    #     for i in range(endD - startD):
-    #         dest[(startDest + i)] = np.exp(d[(startD + i)] - offset)
-    #         sum += dest[(startDest + i)]
+    #     for k in range(self.length):
+    #         prob *= self.prob_c[k][0] * self.prob_c0[k][vec[k]] + prob_c1[k]
     #
-    #     if sum != 1.0:
-
-
+    #         p = 0.0
+    #         for m in range(min(self.distance, k)):
+    #             p +=  self.prob_c1[k][vec[k]] * self.prob_c1_m[k][k-m][vec[k]]
+    #
+    # def fit(self, X):
+    #
+    # def seq2vec(self, seq):
+    #     vec = list()
+    #     for s in seq:
+    #         vec.append(map[s])
+    #     return vec

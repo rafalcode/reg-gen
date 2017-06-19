@@ -1242,6 +1242,9 @@ def print_signals():
                       action="store_true", default=False,
                       help=("If used, it will print the base overlap (slope) signals from DNase-seq "
                             " or ATAC-seq data. "))
+    parser.add_option("--bigWig", dest="bigWig",
+                      action="store_true", default=False,
+                      help=("If used, all .wig files will be converted to .bw files"))
 
     options, arguments = parser.parse_args()
 
@@ -1283,7 +1286,28 @@ def print_signals():
                             bc_signal_file=bc_signal_file,
                             norm_signal_file=norm_signal_file,
                             slope_signal_file=slope_signal_file)
+    chrom_sizes_file = genome_data.get_chromosome_sizes()
 
+    if options.bigWig:
+        if options.print_raw_signal:
+            bw_filename = os.path.join(options.output_location, "{}.raw.bw".format(options.output_prefix))
+            system(" ".join(["wigToBigWig", raw_signal_file, chrom_sizes_file, bw_filename, "-verbose=0"]))
+            os.remove(raw_signal_file)
+
+        if options.print_bc_signal:
+            bw_filename = os.path.join(options.output_location, "{}.bc.bw".format(options.output_prefix))
+            system(" ".join(["wigToBigWig", bc_signal_file, chrom_sizes_file, bw_filename, "-verbose=0"]))
+            os.remove(bc_signal_file)
+
+        if options.print_norm_signal:
+            bw_filename = os.path.join(options.output_location, "{}.norm.bw".format(options.output_prefix))
+            system(" ".join(["wigToBigWig", norm_signal_file, chrom_sizes_file, bw_filename, "-verbose=0"]))
+            os.remove(norm_signal_file)
+
+        if options.print_slope_signal:
+            bw_filename = os.path.join(options.output_location, "{}.slope.bw".format(options.output_prefix))
+            system(" ".join(["wigToBigWig", slope_signal_file, chrom_sizes_file, bw_filename, "-verbose=0"]))
+            os.remove(slope_signal_file)
     # TODO
     exit(0)
 
@@ -1383,13 +1407,17 @@ def diff_footprints():
     parser.add_option("--window-size", dest="window_size", type="int",
                       metavar="INT", default=100)
     parser.add_option("--motif-ext", dest="motif_ext", type="int",
-                      metavar="INT", default=20)
+                      metavar="INT", default=10)
     parser.add_option("--min-value", dest="min_value", type="int",
-                      metavar="INT", default=1)
+                      metavar="INT", default=100)
     parser.add_option("--housekeeping-genes", dest="housekeeping_genes", type="string",
                       metavar="FILE", default=None,
                       help=("A bed file containing house keeping genes used to normalize library size"))
     parser.add_option("--diff", dest="diff", type="int",
+                      metavar="INT", default=None)
+    parser.add_option("--factor1", dest="factor1", type="float",
+                      metavar="INT", default=None)
+    parser.add_option("--factor2", dest="factor2", type="float",
                       metavar="INT", default=None)
 
     # Hidden Options
@@ -1428,7 +1456,7 @@ def diff_footprints():
     elif options.diff == 1:
         diff_footprints.diff1()
     elif options.diff == 2:
-        diff_footprints.diff2()
+        diff_footprints.diff2(options.factor1, options.factor2)
     elif options.diff == 3:
         diff_footprints.diff3()
 
