@@ -148,8 +148,9 @@ class DiffFootprints:
             zf = log(nf[i] + 1) - log(nhatf + 1)
             zr = log(nr[i] + 1) - log(nhatr + 1)
             bias_corrected_signal.append(zf + zr)
-            #bias_corrected_tc.append(nf[i] + nr[i])
-            bias_corrected_tc.append(nf[i] / af[i] + nr[i] / ar[i])
+            bias_corrected_tc.append(nf[i] + nr[i])
+            #bias_corrected_tc.append(nf[i] / af[i] + nr[i] / ar[i])
+            #bias_corrected_tc.append(nhatf + nhatr)
             fSum -= fLast
             fSum += af[i + (window / 2)]
             fLast = af[i - (window / 2) + 1]
@@ -177,13 +178,6 @@ class DiffFootprints:
 
         spr = (nr - nc) / motif_length + (nl - nc) / motif_length
         fos = (nr + 1) / (nc + 1) + (nl + 1) / (nc + 1)
-
-        # nc_mean = sum(bc_signal[signal_half_len - motif_half_len:signal_half_len + motif_half_len]) / motif_length
-        # nl_mean = sum(bc_signal[:signal_half_len - motif_half_len]) / len(bc_signal[:signal_half_len - motif_half_len])
-        # nr_mean = sum(bc_signal[signal_half_len + motif_half_len:]) / len(bc_signal[signal_half_len + motif_half_len:])
-        #
-        # spr = nl_mean + nr_mean - 2 * nc_mean
-        # fos = (nl_mean + 1) / (nc_mean + 1) + (nr_mean + 1) / (nc_mean + 1)
 
         #nr = sum(bias_corrected_tc[signal_half_len + motif_half_len:signal_half_len + motif_half_len + motif_length])
         #nl = sum(bias_corrected_tc[signal_half_len - motif_half_len - motif_length:signal_half_len - motif_half_len])
