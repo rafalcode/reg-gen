@@ -1,6 +1,21 @@
 RGT - Regulatory Genomics Toolbox
 =================================
 
+FORK NOTE: this fork created due to a few problems concerning Thor (only) and certain data sets being run. These issue are:
+
+* dependency on older hmmlearn module (<2.0), can't this be looked at? 
+* may be related error fro Thor.py line 81, train_HMM
+      report=options.report, poisson=options.poisson)
+* two errors have originate in the train_hmm() function (which may be quite a big one)
+  they are:
+  * IndexError: cannot do a non-empty take from an empty axes.
+  * ValueError: low >= high
+
+* TMM normalization is attempted but doesn't succeed ... need verbose details on why not?
+* No differential peaks detected ... when macs2 does find peaks ... not verbose enough ... need to know why
+
+RESUME:
+
 RGT is an open source python library for analysis of regulatory
 genomics. RGT is programmed in an oriented object fashion and its core
 classes provide functionality for handling regulatory genomics data.
